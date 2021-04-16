@@ -1,0 +1,5 @@
+I"�<blockquote>
+  <p>Disclaimer: I use [Room][room] in this post to illustrate how you can configure your internal APIs for database management in clean way, so that you get more stable, easy to use and easy to update framework. If you’re not familiar with [Room][room], it’s a popular library for Android that provides an abstraction layer over SQLite to allow fluent database access while harnessing the full power of SQLite. This post uses it to construct examples, but the topic itself is a bit broader and can be extended to other things like Firebase operations, or SQL operations using some other library, among other examples.</p>
+</blockquote>
+
+:ET

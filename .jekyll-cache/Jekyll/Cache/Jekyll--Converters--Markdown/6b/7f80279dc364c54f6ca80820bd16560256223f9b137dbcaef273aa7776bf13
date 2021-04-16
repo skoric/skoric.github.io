@@ -1,0 +1,122 @@
+I"�<p>I use <a href="https://developer.android.com/training/data-storage/room">Room</a> in this post to illustrate how you can configure your internal APIs for database management in clean way, so that you get more stable, easy to use and easy to update framework.</p>
+
+<p>If you’re not familiar with <a href="https://developer.android.com/training/data-storage/room">Room</a>, it’s a popular library for Android that provides an abstraction layer over SQLite to allow fluent database access while harnessing the full power of SQLite. This post uses it to construct examples, but the topic itself is a bit broader and can be extended to other things like Firebase operations, or SQL operations using some other library, among other examples.</p>
+
+<p>Also, this is just my approach. You might disagree or have something better, and that’s fine.</p>
+
+<h2 id="room-components">Room components</h2>
+
+<p>As you probably already now, in order to use Room, you need database, some models and DAOs (Data Access Objects) for them. So I’ll go ahead and create some simple ones.</p>
+
+<blockquote>
+  <p>Note: you’ll notice I mark some classes as <code class="language-plaintext highlighter-rouge">internal</code>. It’s because in my usual project setup, the database files are in separate module, and I mark the things I don’t want to expose to other modules as <code class="language-plaintext highlighter-rouge">internal</code>.  We’ll come back to this later.</p>
+</blockquote>
+
+<h3 id="database-configuration">Database configuration</h3>
+
+<p>I like to keep my database configuration variables in a separate file so it’s easier to see the whole structure. I call this class <code class="language-plaintext highlighter-rouge">RoomDatabaseConfig</code> and make it a singleton object:</p>
+
+<pre><code class="language-kt">internal object RoomDatabaseConfig {
+	const val DB_NAME = "MyDatabase"
+	const val DB_TEST_NAME = "MyTestDatabase"
+	const val DB_VERSION = 1
+	
+	const val TABLE_USERS = "users"
+}
+</code></pre>
+
+<h3 id="model">Model</h3>
+
+<p>For this example, let’s use some stupid-simple model, e.g. <code class="language-plaintext highlighter-rouge">User</code> (like in the official documentation):</p>
+
+<pre><code class="language-kt">@Entity(tableName = TABLE_USERS)
+data class User {
+	@PrimaryKey(autogenerate = true) val id: Int,
+	val firstName: String?,
+	val lastName: String?
+}
+</code></pre>
+
+<h3 id="dao">DAO</h3>
+
+<p>In order to access this data, we need to create the DAO (Data Access Object) that will be able to perform defined database operations.</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Dao</span>
+<span class="k">internal</span> <span class="kd">interface</span> <span class="nc">UserDao</span> <span class="p">{</span>
+
+	<span class="c1">// Read.</span>
+	
+	<span class="nd">@Query</span><span class="p">(</span><span class="s">"SELECT * FROM ${TABLE_USERS} WHERE id = :id LIMIT 1"</span><span class="p">)</span>
+	<span class="k">suspend</span> <span class="k">fun</span> <span class="nf">get</span><span class="p">(</span><span class="n">id</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">User</span><span class="p">?</span>
+	
+	<span class="nd">@Query</span><span class="p">(</span><span class="s">"SELECT * FROM ${TABLE_USERS}"</span><span class="p">)</span>
+	<span class="k">suspend</span> <span class="k">fun</span> <span class="nf">getAll</span><span class="p">():</span> <span class="nc">List</span><span class="p">&lt;</span><span class="nc">User</span><span class="p">&gt;</span>
+	
+	<span class="c1">// Write</span>
+	
+	<span class="nd">@Insert</span><span class="p">(</span><span class="n">onConflict</span> <span class="p">=</span> <span class="nc">OnConflictStrategy</span><span class="p">.</span><span class="nc">REPLACE</span><span class="p">)</span>
+	<span class="k">suspend</span> <span class="k">fun</span> <span class="nf">insertOrUpdate</span><span class="p">(</span><span class="n">user</span><span class="p">:</span> <span class="nc">User</span><span class="p">)</span>
+	
+	<span class="nd">@Insert</span><span class="p">(</span><span class="n">onConflict</span> <span class="p">=</span> <span class="nc">OnConflictStrategy</span><span class="p">.</span><span class="nc">REPLACE</span><span class="p">)</span>
+	<span class="k">suspend</span> <span class="k">fun</span> <span class="nf">inserOrUpdate</span><span class="p">(</span><span class="n">users</span><span class="p">:</span> <span class="nc">List</span><span class="p">&lt;</span><span class="nc">User</span><span class="p">&gt;)</span>
+	
+	<span class="c1">// Delete</span>
+	
+	<span class="nd">@Delete</span>
+	<span class="k">suspend</span> <span class="k">fun</span> <span class="nf">delete</span><span class="p">(</span><span class="n">user</span><span class="p">:</span> <span class="nc">User</span><span class="p">)</span>
+
+	<span class="nd">@Query</span><span class="p">(</span><span class="s">"DELETE FROM ${TABLE_USERS}"</span><span class="p">)</span>
+	<span class="k">suspend</span> <span class="k">fun</span> <span class="nf">deleteAll</span><span class="p">()</span>
+	
+	<span class="c1">// Observe changes.</span>
+	
+	<span class="k">fun</span> <span class="nf">observe</span><span class="p">():</span> <span class="nc">Flow</span><span class="p">&lt;</span><span class="nc">List</span><span class="p">&lt;</span><span class="nc">User</span><span class="p">&gt;&gt;</span>
+
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>All the users are marked with <code class="language-plaintext highlighter-rouge">suspend</code> because we’ll use them in Kotlin coroutines.</p>
+
+<blockquote>
+  <p>Small hint on naming: I usually like to keep function naming simple and precise, e.g. <code class="language-plaintext highlighter-rouge">insertOrUpdate()</code> is a bit more precise than something like <code class="language-plaintext highlighter-rouge">set()</code>. Also, I let the variable describe the data we’re manipulating, so <code class="language-plaintext highlighter-rouge">get(): User</code> instead of <code class="language-plaintext highlighter-rouge">getUser(): User</code>. I will use full names later in higher-level APIs, but in the context of each DAO, this naming is shorter and more consistent.</p>
+</blockquote>
+
+<h3 id="database">Database</h3>
+
+<p>When initializing database, I usually provide functions for instantiating the production and test databases, along all the DAO getters.</p>
+
+<pre><code class="language-kt">@Database(
+  entities = [User::class],
+  version = DB_VERSION
+)
+abstract class MyDatabase : RoomDatabase {
+  
+  companion object {
+  
+    private var instance: MyDatabase? = null
+    private var testInstance: MyDatabase? = null
+		
+    fun getInstance(ctx: Context): MyDatabase {
+      instance?.let { return it }
+      instance = Room
+	  	.databaseBuilder(ctx, RoomDatabase::class.java, DB_NAME)
+	  	.build()
+	  return instance!!
+    }
+	
+	fun getTestInstance(ctx: Context): MyDatabase {
+	  testInstance?.let { return it }
+	  testInstance = Room
+	  	.databaseBuilder(ctx, RoomDatabase::class.java, DB_TEST_NAME)
+		.build()
+	  return testInstance!!
+	}
+	
+  }
+  
+  internal abstract fun userDao(): UserDao
+
+}
+</code></pre>
+
+:ET
