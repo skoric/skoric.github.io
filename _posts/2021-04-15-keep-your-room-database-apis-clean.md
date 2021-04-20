@@ -82,7 +82,7 @@ internal interface UserDao {
 }
 ```
 
-All the users are marked with `suspend` because we'll use them in Kotlin coroutines.
+All the functions are marked with `suspend` because we'll use them in Kotlin coroutines.
 
 > Small hint on naming: I usually like to keep function naming simple and precise, e.g. `insertOrUpdate()` is a bit more precise than something like `set()`. Also, I let the variable describe the data we're manipulating, so `get(): User` instead of `getUser(): User`. I will use full names later in higher-level APIs, but in the context of each DAO, this naming is shorter and more consistent. 
 
